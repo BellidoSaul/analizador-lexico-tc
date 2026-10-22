@@ -79,7 +79,7 @@ for a, titulo in ((afnd, "AFND (con ε)"), (afd, "AFD (sin ε ni λ)")):
     st.markdown("#### Tabla de transiciones")
     filas = [{"Estado actual": ("→ " if e == a.inicial else "") + e + (" *" if e in a.finales else ""),
               "Símbolo(s)": et, "Estado destino": d} for (e, et, d) in aristas_agrupadas(a)]
-    st.dataframe(pd.DataFrame(filas), use_container_width=True, hide_index=True, height=min(38 * (len(filas) + 1) + 3, 900))
+    st.dataframe(pd.DataFrame(filas), use_container_width=True, hide_index=True, height=min(35 * (len(filas) + 1) + 3, 900))
     st.caption("→ estado inicial · * estado final" + (" · ε = transición vacía" if a.es_afnd else
                " · el AFD no tiene transiciones ε/λ; las transiciones no listadas llevan a un estado de error implícito"))
 
