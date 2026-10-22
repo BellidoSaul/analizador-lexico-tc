@@ -1,0 +1,6 @@
+Lote: LOTE-742
+Producto: Leche entera
+Proveedor: Gloria
+Fecha: 35/10/2026
+Motivo: X
+Cantidad: 45K
