@@ -1,7 +1,7 @@
 import pandas as pd
 import streamlit as st
 
-from automata import (TOKENS, a_dot, a_sql, aristas_agrupadas, construir, quintupla, tokenizar)
+from automata import (TOKENS, a_dot, a_sql, aristas_agrupadas, construir, etiqueta, quintupla, tokenizar)
 
 st.set_page_config(page_title="Analizador Léxico - Mermas e Inventarios", layout="wide")
 
@@ -68,21 +68,20 @@ er = next(e for n, e, _ in TOKENS if n == nombre)
 afnd, afd = construir(er, minimiza)
 st.markdown(f"**Expresión regular:** `{er.replace(' ', '␣')}`")
 
-tab1, tab2 = st.tabs(["AFND (con ε)", "AFD (sin ε ni λ)"])
-for tab, a, titulo in ((tab1, afnd, "AFND"), (tab2, afd, "AFD")):
-    with tab:
-        st.markdown(f"#### Quíntupla del {titulo}:  M = (Q, Σ, δ, q0, F)")
-        q = quintupla(a)
-        st.table(pd.DataFrame({"Componente": ["Q (estados)", "Σ (alfabeto)", "δ (transiciones)", "q0 (inicial)", "F (finales)"],
-                               "Valor": [q["Q"], q["Σ"], "ver tabla de transiciones", q["q0"], q["F"]]}))
-        st.markdown(f"#### Gráfico del {titulo}")
-        st.graphviz_chart(a_dot(a), use_container_width=True)
-        st.markdown(f"#### Tabla de transiciones del {titulo}")
-        filas = [{"Estado actual": ("→ " if e == a.inicial else "") + e + (" *" if e in a.finales else ""),
-                  "Símbolo(s)": et, "Estado destino": d} for (e, et, d) in aristas_agrupadas(a)]
-        st.dataframe(pd.DataFrame(filas), use_container_width=True, hide_index=True)
-        st.caption("→ estado inicial · * estado final" + (" · ε = transición vacía" if a.es_afnd else
-                   " · el AFD no tiene transiciones ε/λ; las transiciones no listadas llevan a un estado de error implícito"))
+for a, titulo in ((afnd, "AFND (con ε)"), (afd, "AFD (sin ε ni λ)")):
+    st.markdown(f"### {titulo}")
+    st.markdown("#### Quíntupla:  M = (Q, Σ, δ, q0, F)")
+    q = quintupla(a)
+    st.table(pd.DataFrame({"Componente": ["Q (estados)", "Σ (alfabeto)", "δ (transiciones)", "q0 (inicial)", "F (finales)"],
+                           "Valor": [q["Q"], "{" + etiqueta(a.alfabeto) + "}", "ver gráfico y tabla de transiciones", q["q0"], q["F"]]}))
+    st.markdown("#### Gráfico")
+    st.graphviz_chart(a_dot(a), use_container_width=True)
+    st.markdown("#### Tabla de transiciones")
+    filas = [{"Estado actual": ("→ " if e == a.inicial else "") + e + (" *" if e in a.finales else ""),
+              "Símbolo(s)": et, "Estado destino": d} for (e, et, d) in aristas_agrupadas(a)]
+    st.dataframe(pd.DataFrame(filas), use_container_width=True, hide_index=True, height=min(38 * (len(filas) + 1) + 3, 900))
+    st.caption("→ estado inicial · * estado final" + (" · ε = transición vacía" if a.es_afnd else
+               " · el AFD no tiene transiciones ε/λ; las transiciones no listadas llevan a un estado de error implícito"))
 
 st.subheader("Relación ER → AFND → AFD")
 st.markdown(f"La ER de **{nombre}** se convierte en un AFND con ε (construcción de Thompson, {len(afnd.estados)} estados) "
