@@ -397,3 +397,4 @@ def a_sql(tokens):
     return ("INSERT INTO mermas (lote, producto, proveedor, fecha, motivo, cantidad_kg)\n"
             f"VALUES ('{campos['Lote']}', '{campos['Producto']}', '{campos['Proveedor']}', "
             f"'{y}-{m}-{d}', '{campos['Motivo']}', {campos['Cantidad'][:-2]});"), []
+
