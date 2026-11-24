@@ -7,10 +7,12 @@ from collections import deque
 from dataclasses import dataclass, field
 
 EPS = None  # etiqueta de la transición ε (λ)
+SIMBOLO_EPS = "ε"  # cámbialo a "λ" si quieres que coincida con JFLAP
+CONFIG = {"abreviar_letras": True}  # True: muestra "letra"; False: lista las letras una por una
 
 LETRAS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyzÁÉÍÓÚáéíóúÑñ"
 DIGITOS = "0123456789"
-NOMBRES_CLASES = {frozenset(LETRAS): "letra"}  # los dígitos se muestran como el rango 0-9
+NOMBRES_CLASES = {frozenset(LETRAS): "letra"}
 
 
 # ---------------------------------------------------------------- parser de ER
@@ -253,29 +255,16 @@ def _vis(c):
     return "␣" if c == " " else c
 
 
-def _cat(c):
-    return 'd' if '0' <= c <= '9' else 'U' if 'A' <= c <= 'Z' else 'l' if 'a' <= c <= 'z' else ''
-
-
 def etiqueta(simbolos):
-    """Agrupa símbolos para mostrarlos: letra, rangos como 0-9 o A-Z, etc."""
+    """Símbolos separados por comas (sin rangos con guion). Opcionalmente abrevia el conjunto de letras."""
     s = set(simbolos)
     partes = []
-    for conj, nombre in NOMBRES_CLASES.items():
-        if conj <= s:
-            partes.append(nombre)
-            s -= conj
-    xs = sorted(s)
-    i = 0
-    while i < len(xs):
-        j = i
-        while j + 1 < len(xs) and ord(xs[j + 1]) == ord(xs[j]) + 1 and _cat(xs[j]) == _cat(xs[j + 1]) != '':
-            j += 1
-        if j - i >= 2:
-            partes.append(f"{_vis(xs[i])}-{_vis(xs[j])}")
-        else:
-            partes += [_vis(x) for x in xs[i:j + 1]]
-        i = j + 1
+    if CONFIG["abreviar_letras"]:
+        for conj, nombre in NOMBRES_CLASES.items():
+            if conj <= s:
+                partes.append(nombre)
+                s -= conj
+    partes += [_vis(x) for x in sorted(s)]
     return ",".join(partes)
 
 
@@ -294,7 +283,7 @@ def aristas_agrupadas(a):
     for (e, t) in sorted(g, key=lambda k: (num(k[0]), num(k[1]))):
         et = etiqueta(g[(e, t)]["s"]) if g[(e, t)]["s"] else ""
         if g[(e, t)]["eps"]:
-            et = (et + "," if et else "") + "ε"
+            et = (et + "," if et else "") + SIMBOLO_EPS
         filas.append((e, et, t))
     return filas
 
@@ -330,6 +319,41 @@ def quintupla(a):
     sigma = "{" + ", ".join(_vis(c) for c in a.alfabeto) + "}"
     return {"Q": "{" + ", ".join(a.estados) + "}", "Σ": etiqueta(a.alfabeto) + "   →   " + sigma,
             "q0": a.inicial, "F": "{" + ", ".join(sorted(a.finales, key=lambda x: int(x[1:]))) + "}"}
+
+
+def a_jff(a, espacio="_"):
+    """XML de JFLAP (.jff). Una transición por símbolo; ε = <read/>.
+    El espacio se escribe como `espacio` porque JFLAP no maneja bien un espacio como símbolo."""
+    from xml.sax.saxutils import escape
+    ids = {e: i for i, e in enumerate(a.estados)}
+    nivel, cola = {a.inicial: 0}, deque([a.inicial])
+    while cola:
+        e = cola.popleft()
+        for (o, c), ds in a.trans.items():
+            if o == e:
+                for d in ds:
+                    if d not in nivel:
+                        nivel[d] = nivel[e] + 1
+                        cola.append(d)
+    por_nivel = {}
+    L = ['<?xml version="1.0" encoding="UTF-8" standalone="no"?>', "<structure>", "\t<type>fa</type>", "\t<automaton>"]
+    for e in a.estados:
+        k = nivel.get(e, 0)
+        j = por_nivel.get(k, 0)
+        por_nivel[k] = j + 1
+        L += [f'\t\t<state id="{ids[e]}" name="{e}">', f"\t\t\t<x>{80 + 140 * k}.0</x>", f"\t\t\t<y>{80 + 90 * j}.0</y>"]
+        if e == a.inicial:
+            L.append("\t\t\t<initial/>")
+        if e in a.finales:
+            L.append("\t\t\t<final/>")
+        L.append("\t\t</state>")
+    for (o, c), ds in sorted(a.trans.items(), key=lambda kv: (ids[kv[0][0]], "" if kv[0][1] is EPS else kv[0][1])):
+        for d in sorted(ds, key=lambda x: ids[x]):
+            L += ["\t\t<transition>", f"\t\t\t<from>{ids[o]}</from>", f"\t\t\t<to>{ids[d]}</to>"]
+            L.append("\t\t\t<read/>" if c is EPS else f"\t\t\t<read>{escape(espacio if c == ' ' else c)}</read>")
+            L.append("\t\t</transition>")
+    L += ["\t</automaton>", "</structure>"]
+    return "\n".join(L)
 
 
 # ---------------------------------------------------------------- tokens y lexer
@@ -397,4 +421,3 @@ def a_sql(tokens):
     return ("INSERT INTO mermas (lote, producto, proveedor, fecha, motivo, cantidad_kg)\n"
             f"VALUES ('{campos['Lote']}', '{campos['Producto']}', '{campos['Proveedor']}', "
             f"'{y}-{m}-{d}', '{campos['Motivo']}', {campos['Cantidad'][:-2]});"), []
-
