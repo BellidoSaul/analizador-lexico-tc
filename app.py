@@ -1,7 +1,8 @@
 import pandas as pd
 import streamlit as st
 
-from automata import TOKENS, a_dot, aristas_agrupadas, construir, etiqueta, quintupla
+import automata
+from automata import TOKENS, a_dot, a_jff, aristas_agrupadas, construir, etiqueta, quintupla
 from compilador import (GRAMATICA, ORDEN, REGLAS_SEMANTICAS, RUTA_LOG, arbol_a_dot, generar_pdf, leer_registro,
                         procesar, registrar)
 
@@ -29,7 +30,11 @@ with st.sidebar:
     st.header("Opciones")
     minimiza = st.checkbox("Minimizar el AFD", value=False,
                            help="Por defecto el AFD es el que resulta del método de subconjuntos.")
-    st.markdown("**Leyenda de los gráficos**  \n`␣` = espacio · `letra` = A-Z, a-z, á é í ó ú ñ · `ε` = transición vacía (solo AFND)")
+    automata.CONFIG["abreviar_letras"] = not st.checkbox(
+        "Mostrar todas las letras (sin abreviar)", value=False,
+        help="Lista A,B,C,… una por una en los gráficos, tal como se vería en JFLAP.")
+    st.markdown("**Leyenda de los gráficos**  \n`␣` = espacio · `letra` = A-Z, a-z, á é í ó ú ñ · "
+                "`ε` = transición vacía (solo AFND) · varios símbolos en una flecha se separan con comas")
 
 # ------------------------------------------------------------------ A) CASO
 st.header("A) Caso: ficha de merma")
@@ -101,6 +106,8 @@ with t_lex:
         with st.expander("Recorrido del AFD para cada lexema"):
             for t in r["tokens"]:
                 st.markdown(f"`{t['lexema']}` → " + " → ".join(t["camino"]))
+        st.markdown("**Cadenas para probar en JFLAP** (el espacio se escribe `_`):")
+        st.code("\n".join(t["lexema"].replace(" ", "_") for t in r["tokens"]), language="text")
     else:
         st.info("Sin lexemas válidos para mostrar.")
 
@@ -127,6 +134,9 @@ with t_lex:
         st.dataframe(pd.DataFrame(filas), hide_index=True, height=min(35 * (len(filas) + 1) + 3, 900))
         st.caption("→ estado inicial · * estado final" + (" · ε = transición vacía" if a.es_afnd else
                    " · el AFD no tiene transiciones ε/λ; las transiciones no listadas llevan a un estado de error implícito"))
+        st.download_button(f"Descargar {titulo.split(' ')[0]} para JFLAP (.jff)", a_jff(a),
+                           f"{nombre}_{'AFND' if a.es_afnd else 'AFD'}.jff", "application/xml",
+                           key=f"jff_{nombre}_{a.es_afnd}")
     st.subheader("Relación ER → AFND → AFD")
     st.markdown(f"La ER de **{nombre}** se convierte en un AFND con ε (construcción de Thompson, {len(afnd.estados)} estados) "
                 f"y este en un AFD (método de subconjuntos{' + minimización' if minimiza else ''}, {len(afd.estados)} estados). "
@@ -181,4 +191,3 @@ with t_tra:
         st.code(r["json"], language="json")
     else:
         st.info("No hay traducción: la ficha no es válida.")
-
